@@ -8,24 +8,21 @@
 #	h: print help dialog and exit
 #	n: list only files which do not contain the string
 
-#set -x
-
 USAGE() { echo "Usage: $0 <-h> <-n> [FILE] [PATTERN]"; exit 0; }
 
-OPTS() 	{ echo -e "OPTS:\n\t-N\n\t\tReturn revisions where pattern does NOT appear\n\t\t(default is where pattern does appear)\n\t-h\n\t\tPrint this help dialog and exit\n\n\t\tSupports all default grep arguments except recursive."; }
-
-#\n\t-f FILE\n\t\tREQUIRED, indicate to the program which RCS file\n\t\tto search, can be given absolute/relative path\n\t\twith or without *,v extension\n\t-s PATTERN\n\t\tREQUIRED, indicate to the program what to search for in the file"; }
+OPTS()	{ echo -e "OPTS:\n\t-N\n\t\tReturn revisions where pattern does NOT appear\n\t\t(default is where pattern does appear)\n\t-h\n\t\tPrint this help dialog and exit\n\n\t\tSupports all default grep arguments except recursive."; }
 
 NOT=false
 REC_ERR=false
 CMD="grep"
 CMDOPTS="-q"
 
+# Process command line args (leading ":" means don't process errors)
 while getopts ":NhdrR" OPTION
 do	
 	case $OPTION in
 		N)			# NOT IN FILE
-       		NOT=true
+		NOT=true
 		;;
 		h)			# HELP
 		OPTS
@@ -35,30 +32,26 @@ do
 		REC_ERR=true
 		set -x
 		;;
-		R | r)
+		R | r)			# RECURSIVE (ignore, return error, but continue)
 		if [ $REC_ERR = false ]
 		then
 			echo "This script does not support processing files recursively."
 			REC_ERR=true
 		fi
 		;;
-		*)			# DEFAULT (value stashed in OPTARG)
-		CMDOPTS="$CMDOPTS -$OPTARG"
+		*)			# DEFAULT (flag stashed in OPTARG)
+		CMDOPTS="${CMDOPTS}${OPTARG}"
 		;;
-		#f)			# FILE
-		#FILE=$OPTARG
-		#;;
-		#s)			# SEARCH STRING
-		#SEARCH=$OPTARG
-		#;;
 	esac
 done
 
 # HEY DUMMY, YOU'RE GOING TO COME LOOKING FOR THIS LATER, THE QUOTES LET YOU PRESERVE QUOTED ARGS
 for i in "$@"
 do 
+	# If $i is a flag (dash followed by one or more word characters) ignore it
 	if [ ! `echo ${i} | grep "\-\w*"` ]
 	then
+		# Check if $i is a file which exists (regardless of size)
 		if [ -e ${i} ]
 		then	
 			FILE=${i}
@@ -68,20 +61,25 @@ do
 	fi
 done
 
+# If file name or search string are length 0, stop
 if [ -z "$FILE" ] || [ -z "$SEARCH" ]
 then
 	USAGE
 fi
 
+# If our file is the RCS version, cut the ",v" off for processing
 if [[ "${FILE}" = *",v" ]]
 then
 	FILE=`echo $FILE | rev | cut -c 3- | rev`
 fi
 
-REVS=`rlog $FILE | grep -o "\([0-9]\+\.[0-9]\+\$\)"`
-REVS=`echo $REVS | awk '{$1=""; print $0}'`
+# Read the logfile, grep lines like "revision #.#", tear out the "revision" parts
+REVS=`rlog $FILE | grep -o "^revision\s[0-9]\+\.[0-9]\+\$" | sed 's/revision//g'`
+
+# Result bucket
 LIST=""
 
+# Be clear and helpful
 FIRST=`echo $REVS | awk '{print $NF}'`
 LAST=`echo $REVS | awk '{print $1}'`
 
@@ -98,7 +96,7 @@ END="in version(s):"
 
 echo "${BEG} ${MID} ${END}"
 
-# iterate through and if a version contains the string, stop and echo something
+# iterate through and if a version contains (or doesnt contain) the string, add it to the list
 for i in $REVS
 do
 	co -q -r${i} $FILE
@@ -114,6 +112,7 @@ do
 	fi
 done
 
+# If the list is empty, don't just give an empty list
 if [ -z "$LIST" ]
 then
 	echo "None"

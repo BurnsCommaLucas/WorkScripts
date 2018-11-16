@@ -4,8 +4,7 @@
 
 USAGE() { echo "Usage: $0 (-a|-d|-s|-r) [-c copy] [-h help]"; exit 0; }
 
-#set -x
-
+# Default paths
 RPATH='/comdsk/burnsl/'
 APATH="${RPATH}active/"
 IPATH="${RPATH}inactive/"
@@ -17,8 +16,9 @@ PCHK=false	# flag to update permissions
 
 # get last part of path in last argument
 for i in $@; do ; done
-i=`echo $i | grep -o -e "[^\/]\+\/\?$"`
+i=`echo $i | grep -oe "[^\/]\+\/\?$"`
 
+# I uh, don't remember what this is supposed to do...
 if [ "$i" = "" ]
 then
 	i=`echo $i | awk -F '/' '{print $0}'`
@@ -57,22 +57,27 @@ do
 	esac
 done
 
-if [ ! ${DEST} = "" ]
+# If destination string is empty, error out
+if [ -z ${DEST} ]
 then
-	if [ -e ${DEST}${i} ]
-	then
-		echo -n "$i already exists in ${DEST} Overwrite? [y]/n: "
-		read LINE
-		if [ "${LINE}" = 'n' -o "${LINE}" = 'N' ]
-		then
-			exit 0
-		fi
-	fi	
-	
-	if $CMD $i $DEST && [ $PCHK = true ]
-	then
-		chmod -R 777 ${DEST}${i} 
-	fi
-else 
 	USAGE	
+fi
+
+# If file already exists at destination, ask about overwriting (default to not overwriting)
+if [ -e ${DEST}${i} ]
+then
+	echo -n "$i already exists in ${DEST} Overwrite? y/[n]: "
+	read LINE
+	if [ "${LINE}" = 'y' -o "${LINE}" = 'Y' ]
+	then
+		;
+	else
+		exit 0
+	fi
+fi	
+
+# copy, and if we need to check permission, just smash them into place 
+if $CMD $i $DEST && [ $PCHK = true ]
+then
+	chmod -R 777 ${DEST}${i} 
 fi
