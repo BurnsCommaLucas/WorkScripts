@@ -2,11 +2,15 @@
 # find instance(s) of RCS file where string was added added/removed
 # 
 # DEFAULT:
-#	Search upwards from revision 1.1 to current, append version number to list
+#	Search upwards from revision earliest to current, append version number to list
 #	and continue searching
 # OPTS:
 #	h: print help dialog and exit
 #	n: list only files which do not contain the string
+# NOTES:
+#	If both input strings are file names, the first will be interpreted as the 
+#	file to search in, and the second will be the string being searched for.
+
 
 USAGE() { echo "Usage: $0 <-h> <-n> [FILE] [PATTERN]"; exit 0; }
 
@@ -14,7 +18,6 @@ OPTS()	{ echo -e "OPTS:\n\t-N\n\t\tReturn revisions where pattern does NOT appea
 
 NOT=false
 REC_ERR=false
-CMD="grep"
 CMDOPTS="-q"
 
 # Process command line args (leading ":" means don't process errors)
@@ -51,8 +54,8 @@ do
 	# If $i is a flag (dash followed by one or more word characters) ignore it
 	if [ ! `echo ${i} | grep "\-\w*"` ]
 	then
-		# Check if $i is a file which exists (regardless of size)
-		if [ -e ${i} ]
+		# if $i is a file which exists and we do not already have a file
+		if [ -e ${i} ] && [ -z ${FILE} ]
 		then	
 			FILE=${i}
 		else
@@ -74,7 +77,7 @@ then
 fi
 
 # Read the logfile, grep lines like "revision #.#", tear out the "revision" parts
-REVS=`rlog $FILE | grep -o "^revision\s[0-9]\+\.[0-9]\+\$" | sed 's/revision//g'`
+REVS=`rlog $FILE | grep -o "^revision\s[0-9]\+\.[0-9]\+" | sed 's/revision//g'`
 
 # Result bucket
 LIST=""
@@ -85,22 +88,22 @@ LAST=`echo $REVS | awk '{print $1}'`
 
 echo "Searching file '${FILE}'"
 echo -e "First revision:\t\t${FIRST}\nLatest revision:\t${LAST}"
-BEG="'${SEARCH}'"
+
 if [ "$NOT" = true ]
 then
-	MID="does not appear"
+	COND="does not appear"
 else 
-	MID="appears"
+	COND="appears"
 fi
-END="in version(s):"
 
-echo "${BEG} ${MID} ${END}"
+echo "'${SEARCH}' ${COND} in version(s):"
 
 # iterate through and if a version contains (or doesnt contain) the string, add it to the list
 for i in $REVS
 do
+	# quietly check out revision {i} of {FILE}
 	co -q -r${i} $FILE
-	if cat $FILE | ${CMD} ${CMDOPTS} "$SEARCH"
+	if cat $FILE | grep ${CMDOPTS} "$SEARCH"
 	then
 		if [ "$NOT" = false ]
 		then
