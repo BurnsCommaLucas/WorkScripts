@@ -2,15 +2,18 @@
 #
 # Given an informix database name and an informix table, create a java spring datamodel class for that table
 
+USAGE() { echo "USAGE: $0 [-p pkgname] [-c clsname] DBName TableName"; exit 1; }
+
 CLASS=""
-TABLE="${2}"
+PACK="<package_name>"
+
 TEMP="table.tmp"
 F1="tmp1"
 F2="tmp2"
 MAPFILE="map.txt"
-OUT=".txt"
+OUT=".java"
 
-while getopts ":c:" OPTION
+while getopts ":c:p:" OPTION
 do
 	case $OPTION in
 
@@ -18,8 +21,19 @@ do
 	c)
 	CLASS="${OPTARG}"
 	;;
+	# Enter a package name for the generated file
+	p)
+	PACK="${OPTARG}"
+	;;
+	[?])
+	USAGE
+	;;
 	esac
 done
+shift $OPTIND-1
+
+TABLE="${2}"
+DB=$(echo ${1} | awk -F '@' '{print $1}')
 
 if [ "$CLASS" == "" ]
 then
@@ -28,8 +42,7 @@ fi
 
 if [ "${CLASS}" == "" ] || [ "${1}" == "" ]
 then
-	echo "USAGE: $0 <DBName> <TableName> (-c override-class-name)"
-	exit 0;
+	USAGE
 fi
 
 OUT=${CLASS}${OUT}
@@ -55,9 +68,17 @@ done < $MAPFILE
 
 # map column names to a Java type
 typeset -A MAP
+NULLS=""
 while IFS='' read -r LINE || [[ -n "$LINE" ]]; do
+	LINE=`echo $LINE | tr -d ','`
 	KEY=`echo $LINE | awk '{print $1}'`
 	VAL=`echo $LINE | awk '{print $2}' | tr -d ','`
+	NULLCHK=`echo $LINE | awk '{print $(NF-1)" "$NF}'`
+	
+	if [[ "${NULLCHK}" = "not null" ]]
+	then 
+		 NULLS="${NULLS} ${KEY}"
+	fi
 
 	PUT="${REF[$VAL]}"
 	if [[ "${VAL}" = *"char"* ]]
@@ -78,7 +99,7 @@ while IFS='' read -r LINE || [[ -n "$LINE" ]]; do
 done < $TEMP
 
 # Create file header with imports and class definition
-PRE1="import java.io.Serializable;\n\nimport javax.persistence.Column;\nimport javax.persistence.Entity;\nimport javax.persistence.Id;\n\n@Entity\npublic class"
+PRE1="package com.osm.${PACK}.${DB}.datamodel;\nimport java.io.Serializable;\n\nimport javax.persistence.Column;\nimport javax.persistence.Entity;\n\n@Entity\npublic class"
 PRE2="implements Serializable {\n\tprivate static final long serialVersionUID = 1L;\n\t"
 echo -en "${PRE1} ${CLASS} ${PRE2}"  > ${OUT}
 
@@ -107,8 +128,11 @@ do
 done
 echo -en "\t}\n\n" >> ${OUT}
 
+# Create attribute overrides
+
+
 # Create Getters/Setters
-GETHDR="\t@Id\n\t@Column(name = \""
+GETHDR="\t@Column(name = \""
 for VAR in "${!MAP[@]}"
 do
 	CAMEL=$(echo ${VAR} | sed -e "s/\b\(.\)/\u\1/g")
@@ -122,4 +146,4 @@ done
 
 # End file, cleanup
 echo "}" >> ${OUT}
-rm ${TEMP} ${F1} ${F2} ${MAPFILE}
+rm ${TEMP} ${F1} ${F2}
