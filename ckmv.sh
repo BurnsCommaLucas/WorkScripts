@@ -1,6 +1,15 @@
 #!/bin/ksh
-
+#
 # Takes makefile name and creates my normal testing directory structure with the checked out files
+#
+# - <program_name>
+#   |
+#   - <program_makefile>
+#   - <program_files>
+#   - vs
+#     |
+#     - <program_makefile>
+#     - <program_files>
 
 # Make the directory for the file we want
 mkdir $1
