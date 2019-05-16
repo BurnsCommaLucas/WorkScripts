@@ -1,9 +1,12 @@
 #!/bin/ksh
-# find instance(s) of RCS file where string was added added/removed
+# AUTHOR: 
+#	Lucas Burns
+# FUNCTION: 
+#	Find instance(s) of RCS file where string does/does not exist
 # 
 # DEFAULT:
 #	Search upwards from revision earliest to current, append version number to list
-#	and continue searching
+#	if that version contains the given search string and continue searching upwards
 # OPTS:
 #	h: print help dialog and exit
 #	n: list only files which do not contain the string
@@ -12,7 +15,7 @@
 #	file to search in, and the second will be the string being searched for.
 
 
-USAGE() { echo "Usage: $0 <-h> <-n> [FILE] [PATTERN]"; exit 0; }
+USAGE() { echo "Usage: $0 [-h] [-n] <file> <pattern>"; exit 1; }
 
 OPTS()	{ echo -e "OPTS:\n\t-N\n\t\tReturn revisions where pattern does NOT appear\n\t\t(default is where pattern does appear)\n\t-h\n\t\tPrint this help dialog and exit\n\n\t\tSupports all default grep arguments except recursive."; }
 
@@ -21,10 +24,10 @@ REC_ERR=false
 CMDOPTS="-q"
 
 # Process command line args (leading ":" means don't process errors)
-while getopts ":NhdrR" OPTION
+while getopts ":NnhdrR" OPTION
 do	
 	case $OPTION in
-		N)			# NOT IN FILE
+		N | n)			# NOT IN FILE
 		NOT=true
 		;;
 		h)			# HELP
@@ -48,25 +51,27 @@ do
 	esac
 done
 
+echo $USER $(date "+%Y-%m-%d %H:%M:%S") >> /comdsk/burnsl/scripts/old_ver_users.txt
+
 # HEY DUMMY, YOU'RE GOING TO COME LOOKING FOR THIS LATER, THE QUOTES LET YOU PRESERVE QUOTED ARGS
 for i in "$@"
 do 
-	# If $i is a flag (dash followed by one or more word characters) ignore it
-	if [ ! `echo ${i} | grep "\-\w*"` ]
+	# if $i is a file which exists and we do not already have a file
+	if [ -e ${i} ] && [ -z ${FILE} ]
 	then
-		# if $i is a file which exists and we do not already have a file
-		if [ -e ${i} ] && [ -z ${FILE} ]
-		then	
-			FILE=${i}
-		else
-			SEARCH=${i}
-		fi
+		FILE=${i}
+	else
+		SEARCH=${i}
 	fi
 done
 
 # If file name or search string are length 0, stop
 if [ -z "$FILE" ] || [ -z "$SEARCH" ]
 then
+	USAGE
+elif [ -d "$FILE" ]
+then
+	echo "'${FILE}' is a directory, this program does not support searching directories."
 	USAGE
 fi
 
@@ -86,7 +91,7 @@ LIST=""
 FIRST=`echo $REVS | awk '{print $NF}'`
 LAST=`echo $REVS | awk '{print $1}'`
 
-echo "Searching file '${FILE}'"
+echo "Searching file '${FILE}' for string '${SEARCH}'"
 echo -e "First revision:\t\t${FIRST}\nLatest revision:\t${LAST}"
 
 if [ "$NOT" = true ]
