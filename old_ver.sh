@@ -24,10 +24,10 @@ REC_ERR=false
 CMDOPTS="-q"
 
 # Process command line args (leading ":" means don't process errors)
-while getopts ":NnhdrR" OPTION
+while getopts ":NhdrR" OPTION
 do	
 	case $OPTION in
-		N | n)			# NOT IN FILE
+		N)			# NOT IN FILE
 		NOT=true
 		;;
 		h)			# HELP
