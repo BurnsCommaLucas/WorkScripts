@@ -1,0 +1,5 @@
+AUTH_TOKEN=############
+ORG_NAME=##############
+PROJECT_ID=############
+REPO_ID=###############
+HELM_REGEX=.*

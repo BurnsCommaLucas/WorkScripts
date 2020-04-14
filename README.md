@@ -5,6 +5,7 @@ I've written or adapted these scripts while working largely on a remote Linux se
 
 The big kids on this playground are:
 
+ - [kill_helm_deploy.sh](https://github.com/BurnsCommaLucas/WorkScripts/blob/master/kill_helm_deploy.sh): Checks active Kubernetes/helm deployments against active pull requests in Azure DevOps and uninstalls any deployments without an active pull request
  - [old_ver.sh](https://github.com/BurnsCommaLucas/WorkScripts/blob/master/old_ver.sh): This script goes into our old version control system and figures out what revisions of a given file contain a given string
  - [active.sh](https://github.com/BurnsCommaLucas/WorkScripts/blob/master/active.sh): This one moves things around my personal work directories, and handles permission changes automatically so I don't have to play hard-ball after creating files as the wrong user.
  - [log_check.sh](https://github.com/BurnsCommaLucas/WorkScripts/blob/master/log_check.sh): Recursively checks the current directory for pesky odbc.log files which can get pretty big in size without anyone noticing.
