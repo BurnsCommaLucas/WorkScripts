@@ -4,7 +4,7 @@
 # FUNCTION:
 #	Find active helm deployments based on pull requests with (state != active)
 # 	and remove said helm deployments (maybe more?)
-# USAGE:
+# USAGE: <see below for flags>
 #	./kill-helm-deploys.sh <optional regex for helm>
 #		e.g.
 #		./kill-helm-deploys.sh
@@ -12,7 +12,7 @@
 #		./kill-helm-deploys.sh "banana-pr"
 #			searches for helm deployments that contain "banana-pr"
 # DEPENDENCIES:
-#	bash >= 3.0, jq, wget, sed, getopts
+#	helm, kubectl, bash >= 3.0, jq, wget, sed, getopts
 # DOCS:
 #	jq regex:		    https://stedolan.github.io/jq/manual/#RegularexpressionsPCRE
 #	ADO Pull requests: 	https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20requests?view=azure-devops-rest-5.1
@@ -69,7 +69,7 @@ function itemInList {
 #	- (OPTIONAL) The exit code to return
 #############################################
 function EX_MSG {
-	echo "${1}Usage: ${PROG_NAME} -a <auth_token> -o <org_id> -p <project_id> -r <repo_id> (-x <helm_regex> -f <config_file>) (-h)"
+	echo "${1}Usage: ${PROG_NAME} -a <auth_token> -o <org_id> -p <project_id> -r <repo_id> (-x <helm_regex> -f <config_file>) (-d) (-h)"
 	# Exit with code ${2}, or 0 if nothing in ${2}
 	exit ${2:-0}
 }
@@ -82,13 +82,14 @@ function EX_MSG {
 #       -x  Helm deployment regex
 #           (still looks for PR number at
 #           end of deployment name)
+#       -d  Dry run mode, does everything but the uninstall step
 #       -f  Get config from file
 #           (command line args have precedence)
 #           file should look like:
 #               KEY=VAL
 #               KEY=VAL
 #               ...
-while getopts "f:a:o:p:r:x:h" FLAG; do
+while getopts "f:a:o:p:r:x:hd" FLAG; do
 	case "${FLAG}" in
 	a) AUTH_TOKEN="${OPTARG}" ;;
 	o) ORG_NAME="${OPTARG}" ;;
@@ -96,6 +97,7 @@ while getopts "f:a:o:p:r:x:h" FLAG; do
 	r) REPO_ID="${OPTARG}" ;;
 	x) HELM_REGEX="${OPTARG}" ;;
 	h) EX_MSG ;;
+	d) DRY_RUN=1 ;;
 	f)
 		LINES=$(cat ${OPTARG})
 		for LINE in $LINES; do
@@ -119,9 +121,11 @@ if [ -z $AUTH_TOKEN ] || [ -z $ORG_NAME ] || [ -z $PROJECT_ID ] || [ -z $REPO_ID
 	EX_MSG "Missing one or more required parameters. " 1
 fi
 
+KUBE_CONTEXT=$(kubectl config current-context)
+
 # List all helm deploys matching "${HELM_REGEX}"
 echo =============================================
-echo "Getting deploys matching '${HELM_REGEX}'"
+echo "Getting deploys matching '${HELM_REGEX}' from context ${KUBE_CONTEXT:-<context unavailable>}"
 read -a DEPLOYS <<<$(helm list -o json |
 	jq -r ".[].name | select(test(\"${HELM_REGEX}\"))")
 
@@ -156,6 +160,10 @@ for D in "${DEPLOYS[@]}"; do
 		echo Deployment $DEP_NUM has matching PR, ignoring
 	else
 		echo Deployment $DEP_NUM has no matching PR
-		helm uninstall $D
+		if [ $DRY_RUN ]; then
+			echo DRY RUN: $DEP_NUM would be removed
+		else
+			helm uninstall $D
+		fi
 	fi
 done
