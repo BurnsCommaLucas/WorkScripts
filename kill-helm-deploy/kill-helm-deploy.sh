@@ -126,8 +126,7 @@ KUBE_CONTEXT=$(kubectl config current-context)
 # List all helm deploys matching "${HELM_REGEX}"
 echo =============================================
 echo "Getting deploys matching '${HELM_REGEX}' from context ${KUBE_CONTEXT:-<context unavailable>}"
-read -a DEPLOYS <<<$(helm list -o json |
-	jq -r ".[].name | select(test(\"${HELM_REGEX}\"))")
+read -d '\n' -a DEPLOYS <<< $(helm list -o json | jq -r ".[].name | select(test(\"${HELM_REGEX}\"))")
 
 # Create a list of the deploy *numbers* for printing
 declare -a DEP_NUMS
@@ -137,7 +136,7 @@ done
 
 # List all pull requests (default is status == active)
 echo "Getting pull requests with status 'active'"
-read -a PULL_REQUESTS <<<$(wget --no-check-certificate -O- --quiet --method GET \
+read -d '\n' -a PULL_REQUESTS <<<$(wget --no-check-certificate -O- --quiet --method GET \
 	--timeout=0 \
 	--header "Authorization: Basic ${AUTH_TOKEN}" \
 	--header 'Content-Type: application/json' \
